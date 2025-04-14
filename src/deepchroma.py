@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from torchaudio.models import Conformer
 import math
 import lightning as L
-
+import json
 
 import os
 import librosa
@@ -447,6 +447,51 @@ class ChromaInference:
         return output
 
 
+def compute_beat_synchronous_chroma(features, beats, feature_sr=44100, feature_hop=4096, beat_sr=22050, beat_hop=256):
+    """
+    Compute beat-synchronous chroma features from frame-level features.
+    
+    Args:
+        features (torch.Tensor): Frame-level features of shape (num_frames, 12)
+        beats (str): String containing beat frame indices in format "[frame1, frame2, ...]"
+        feature_sr (int): Sample rate of the features (default: 44100)
+        feature_hop (int): Hop length of the features (default: 4096)
+        beat_sr (int): Sample rate of the beat tracker (default: 22050)
+        beat_hop (int): Hop length of the beat tracker (default: 256)
+    
+    Returns:
+        torch.Tensor: Beat-synchronous chroma features of shape (num_beats, 12)
+    """
+    # Parse beat frame indices from string
+    beat_frames = [int(frame) for frame in beats.strip('[]').split(',')]
+    
+    # Convert beat frames to feature frames
+    feature_frames = []
+    for beat_frame in beat_frames:
+        # Convert beat frame to time in seconds
+        beat_time = beat_frame * beat_hop / beat_sr
+        # Convert time to feature frame index
+        feature_frame = int(beat_time * feature_sr / feature_hop)
+        feature_frames.append(feature_frame)
+    
+    # Initialize output tensor
+    num_beats = len(feature_frames)
+    beat_chroma = torch.zeros((num_beats, 12), device=features.device)
+    
+    # Compute beat-synchronous features
+    for i in range(num_beats):
+        start_frame = feature_frames[i]
+        if i < num_beats - 1:
+            end_frame = feature_frames[i + 1]
+        else:
+            end_frame = len(features)
+        
+        # Average features between beat onsets
+        beat_chroma[i] = features[start_frame:end_frame].mean(dim=0)
+    
+    return beat_chroma
+
+
 def main():
     parser = argparse.ArgumentParser(description='Run chroma inference on audio files')
     parser.add_argument('--audio', type=str, required=True, help='Path to audio file')
@@ -456,6 +501,7 @@ def main():
     parser.add_argument('--hop-size', type=int, default=64, help='Hop size between patches')
     parser.add_argument('--hidden-dim', type=int, default=128, help='Hidden dimension of the model')
     parser.add_argument('--output-dim', type=int, default=12, help='Output dimension (chroma bins)')
+    parser.add_argument('--beats', type=str, default=None, help='Path to beats file')
     
     args = parser.parse_args()
     
@@ -474,6 +520,14 @@ def main():
     # Load and process audio
     track = AudioTrack(audio_path=args.audio)
     features = inference(track)
+
+    # If beats file is provided, load it and use it calculate beat-synchronous chroma
+    if args.beats:
+        # Load and parse the beats JSON file
+        with open(args.beats, 'r') as f:
+            beats_data = json.load(f)
+            beats = beats_data['est_beats']
+        features = compute_beat_synchronous_chroma(features, beats)
     
     # Save features if output path is provided
     if args.output:
