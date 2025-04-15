@@ -10,8 +10,12 @@ import torch
 import numpy as np
 from typing import Optional, Tuple
 
-from .deepchroma import compute_beat_synchronous_chroma
-from .leadsheet import LeadSheet
+import sys
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(current_dir)
+
+from deepchroma import compute_beat_synchronous_chroma, ChromaInference, ChromaPredictor, HCQTConformer, AudioTrack
+from leadsheet import LeadSheet
 
 def load_audio_features(audio_path: str, beats_path: str, start_sec: Optional[float] = None, 
                        end_sec: Optional[float] = None, force_recalculation: bool = False) -> Tuple[torch.Tensor, float, float]:
@@ -54,7 +58,6 @@ def load_audio_features(audio_path: str, beats_path: str, start_sec: Optional[fl
     else:
         print("Calculating features from scratch")
         # Create inference object and process audio
-        from .deepchroma import ChromaInference, ChromaPredictor, HCQTConformer
         model = ChromaPredictor(
             HCQTConformer(
                 hidden_dim=128,
@@ -64,7 +67,6 @@ def load_audio_features(audio_path: str, beats_path: str, start_sec: Optional[fl
         inference = ChromaInference(model)
         
         # Load and process audio
-        from .deepchroma import AudioTrack
         track = AudioTrack(audio_path=audio_path)
         features = inference(track)
         print(f"Initial features shape: {features.shape}")
