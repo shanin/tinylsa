@@ -137,6 +137,7 @@ def main():
     parser.add_argument('--end', type=float, help='End time in seconds')
     parser.add_argument('--transpose', type=int, choices=range(12), help='Transposition key (0-11)')
     parser.add_argument('--force-chroma-calculation', action='store_true', help='Force recalculation of chroma features')
+    parser.add_argument('--segment-id', type=str, help='Identifier for the segment (used in output filename)')
     
     args = parser.parse_args()
     
@@ -145,6 +146,9 @@ def main():
     data_id = data_path.name
     audio_path = data_path / 'audio' / f'{data_id}.wav'
     beats_path = data_path / 'features' / f'{data_id}_beats_.json'
+    
+    # Create output filename with segment_id if provided
+    output_suffix = f"_{args.segment_id}" if args.segment_id else ""
     
     # Load and process audio features
     features, start_time, end_time = load_audio_features(
@@ -184,22 +188,38 @@ def main():
         audio_sr = beats_data['globals']['sample_rate']
         hop_length = beats_data['globals']['hop_length']
     
-    # Convert beat frames to timestamps
-    beat_times = [float(frame) * hop_length / audio_sr for frame in beats.strip('[]').split(',')]
+    # Parse beat frames and convert to timestamps
+    beat_frames = [int(frame) for frame in beats.strip('[]').split(',')]
+    beat_times = [float(frame) * hop_length / audio_sr for frame in beat_frames]
+    
+    # Find beat indices that fall within the time segment
+    start_beat_idx = 0
+    end_beat_idx = len(beat_frames)
+    
+    if args.start is not None or args.end is not None:
+        for i, time in enumerate(beat_times):
+            if time >= args.start and start_beat_idx == 0:
+                start_beat_idx = i
+            if time > args.end and end_beat_idx == len(beat_frames):
+                end_beat_idx = i
+                break
+    
+    # Get only the timestamps for our segment
+    segment_beat_times = beat_times[start_beat_idx:end_beat_idx]
     
     # Create alignment result with timestamps
     alignment_result = {
         'loglikelihood': float(loglik),  # Convert to Python float
         'states': [int(state) for state in states],  # Convert to Python int
-        'timestamps': beat_times  # Already converted to Python float
+        'timestamps': segment_beat_times  # Only timestamps for our segment
     }
     
     # Create predictions directory if it doesn't exist
     predictions_path = data_path / 'predictions'
     predictions_path.mkdir(parents=True, exist_ok=True)
     
-    # Save alignment result
-    result_path = predictions_path / f'{data_id}_alignment.json'
+    # Save alignment result with segment_id in filename
+    result_path = predictions_path / f'{data_id}_alignment{output_suffix}.json'
     with open(result_path, 'w') as f:
         json.dump(alignment_result, f, indent=2)
     

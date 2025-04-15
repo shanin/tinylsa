@@ -36,6 +36,7 @@ python -m src.align --data <data_folder> --tune <tune_name> --musicxml <musicxml
 - `--end <seconds>`: End time in seconds (default: end of audio)
 - `--transpose <0-11>`: Transposition key (0-11, default: try all and select best)
 - `--force-chroma-calculation`: Force recalculation of chroma features (default: use cached if available)
+- `--segment-id <id>`: Identifier for the segment (appended to output filename)
 
 ### Example
 
@@ -47,17 +48,18 @@ python -m src.align \
     --musicxml <musicxml_path> \
     --transpose 0 \
     --start 30 \
-    --end 90
+    --end 90 \
+    --segment-id chorus1
 
-# Process the same tune but force chroma feature recalculation
+# Process another segment of the same tune
 python -m src.align \
     --data <data_path> \
     --tune <tune_name> \
     --musicxml <musicxml_path> \
     --transpose 0 \
-    --start 30 \
-    --end 90 \
-    --force-chroma-calculation
+    --start 90 \
+    --end 150 \
+    --segment-id chorus2
 ```
 
 ### Output Files
@@ -70,10 +72,11 @@ The tool generates the following files:
      - Shape: (num_beats, 12)
 
 2. In `predictions/` folder:
-   - `<tune_id>_alignment.json`: Alignment results containing:
+   - `<tune_id>_alignment[_<segment_id>].json`: Alignment results containing:
      - `loglikelihood`: Log-likelihood of the alignment
      - `states`: Sequence of decoded states
      - `timestamps`: Beat times corresponding to each state
+   - If `--segment-id` is provided, it's appended to the filename (e.g., `tune_id_alignment_chorus1.json`)
 
 ### Data Structure
 
@@ -87,7 +90,9 @@ data_folder/
 │   ├── <tune_id>_beats_.json
 │   └── <tune_id>_chroma.npy
 └── predictions/
-    └── <tune_id>_alignment.json
+    ├── <tune_id>_alignment.json
+    ├── <tune_id>_alignment_chorus1.json
+    └── <tune_id>_alignment_chorus2.json
 ```
 
 The beats JSON file should contain:
@@ -103,6 +108,7 @@ The beats JSON file should contain:
 - Time segment selection
 - Feature caching for efficiency
 - JSON-based output format
+- Segment-specific output files
 
 ## Dependencies
 
