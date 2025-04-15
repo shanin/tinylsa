@@ -1,0 +1,10 @@
+music21==9.1.0
+numpy>=1.21.0
+networkx>=2.6.0
+matplotlib>=3.4.0
+hmmlearn>=0.2.8
+torch>=2.0.0
+torchaudio>=2.0.0
+lightning>=2.0.0
+librosa>=0.10.0
+pumpp>=0.1.0
