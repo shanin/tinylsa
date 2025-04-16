@@ -18,7 +18,7 @@ from deepchroma import compute_beat_synchronous_chroma, ChromaInference, ChromaP
 from crema import BeatCrema
 from leadsheet import LeadSheet
 
-def load_audio_features(audio_path: str, beats_path: str, start_sec: Optional[float] = None, 
+def load_audio_features(audio_path: str, beats_path: str, model_path: str, start_sec: Optional[float] = None, 
                        end_sec: Optional[float] = None, force_recalculation: bool = False, use_crema: bool = True) -> Tuple[torch.Tensor, float, float]:
     """
     Load and process audio features with optional time segment selection.
@@ -69,6 +69,7 @@ def load_audio_features(audio_path: str, beats_path: str, start_sec: Optional[fl
                     output_dim=12,
                 ).float()
             )
+        model.load_state_dict(torch.load(model_path))
         inference = ChromaInference(model)
         
         # Load and process audio
@@ -146,7 +147,7 @@ def main():
     parser.add_argument('--force-chroma-calculation', action='store_true', help='Force recalculation of chroma features')
     parser.add_argument('--segment-id', type=str, help='Identifier for the segment (used in output filename)')
     parser.add_argument('--crema', action='store_true', help='Use CREMA model')
-
+    parser.add_argument('--model', type=str, required=True, help='Path to model file')
     args = parser.parse_args()
     
     # Construct paths
@@ -162,6 +163,7 @@ def main():
     features, start_time, end_time = load_audio_features(
         str(audio_path), 
         str(beats_path),
+        str(args.model),
         args.start,
         args.end,
         args.force_chroma_calculation,
