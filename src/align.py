@@ -62,6 +62,7 @@ def load_audio_features(audio_path: str, beats_path: str, start_sec: Optional[fl
         if use_crema:
             model = BeatCrema()
         else:
+            assert False, "ChromaPredictor is disabled"
             model = ChromaPredictor(
                 HCQTConformer(
                     hidden_dim=128,
