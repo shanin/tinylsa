@@ -147,7 +147,6 @@ def main():
     parser.add_argument('--force-chroma-calculation', action='store_true', help='Force recalculation of chroma features')
     parser.add_argument('--segment-id', type=str, help='Identifier for the segment (used in output filename)')
     parser.add_argument('--crema', action='store_true', help='Use CREMA model')
-    parser.add_argument('--model', type=str, required=True, help='Path to model file')
     args = parser.parse_args()
     
     # Construct paths
@@ -160,10 +159,14 @@ def main():
     output_suffix = f"_{args.segment_id}" if args.segment_id else ""
     
     # Load and process audio features
+    if args.crema:
+        model_path = Path(__file__).parent.parent / 'data/crema.st'
+    else:
+        model_path = Path(__file__).parent.parent / 'data/checkpoint.pth'
     features, start_time, end_time = load_audio_features(
         str(audio_path), 
         str(beats_path),
-        str(args.model),
+        str(model_path),
         args.start,
         args.end,
         args.force_chroma_calculation,
