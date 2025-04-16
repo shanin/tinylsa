@@ -18,6 +18,9 @@ import numpy as np
 import argparse
 from pathlib import Path
 
+import sys
+sys.path.append(str(Path(__file__)))
+
 
 class AudioTrack:
 
@@ -394,10 +397,19 @@ class ChromaInference:
 
     def _calculate_predictions(self, patches):
         with torch.no_grad():
+            # Create DataLoader with batch_size=64 (from model_config)
+            dataloader = torch.utils.data.DataLoader(
+                patches,
+                batch_size=64,
+                shuffle=False,
+                num_workers=0
+            )
+            
             predictions = []
-            for i in range(len(patches)):
-                pred = self.model(patches[i].unsqueeze(0))
-                predictions.append(pred.squeeze(0))
+            for batch in dataloader:
+                preds = self.model(batch)
+                predictions.extend(preds)
+                
             return predictions
 
     def _convert_patches_to_one_tensor(self, patches, track_length=None):
@@ -502,10 +514,12 @@ def main():
     parser.add_argument('--hidden-dim', type=int, default=128, help='Hidden dimension of the model')
     parser.add_argument('--output-dim', type=int, default=12, help='Output dimension (chroma bins)')
     parser.add_argument('--beats', type=str, default=None, help='Path to beats file')
+
     
     args = parser.parse_args()
     
     # Load model
+
     model = ChromaPredictor(
         HCQTConformer(
             hidden_dim=args.hidden_dim,
@@ -526,7 +540,7 @@ def main():
         # Load and parse the beats JSON file
         with open(args.beats, 'r') as f:
             beats_data = json.load(f)
-            beats = beats_data['est_beats']
+            beats = beats_data['est_beats'] 
         features = compute_beat_synchronous_chroma(features, beats)
     
     # Save features if output path is provided

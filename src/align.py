@@ -15,10 +15,11 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(current_dir)
 
 from deepchroma import compute_beat_synchronous_chroma, ChromaInference, ChromaPredictor, HCQTConformer, AudioTrack
+from crema import BeatCrema
 from leadsheet import LeadSheet
 
 def load_audio_features(audio_path: str, beats_path: str, start_sec: Optional[float] = None, 
-                       end_sec: Optional[float] = None, force_recalculation: bool = False) -> Tuple[torch.Tensor, float, float]:
+                       end_sec: Optional[float] = None, force_recalculation: bool = False, use_crema: bool = True) -> Tuple[torch.Tensor, float, float]:
     """
     Load and process audio features with optional time segment selection.
     
@@ -58,12 +59,15 @@ def load_audio_features(audio_path: str, beats_path: str, start_sec: Optional[fl
     else:
         print("Calculating features from scratch")
         # Create inference object and process audio
-        model = ChromaPredictor(
-            HCQTConformer(
-                hidden_dim=128,
-                output_dim=12,
-            ).float()
-        )
+        if use_crema:
+            model = BeatCrema()
+        else:
+            model = ChromaPredictor(
+                HCQTConformer(
+                    hidden_dim=128,
+                    output_dim=12,
+                ).float()
+            )
         inference = ChromaInference(model)
         
         # Load and process audio
@@ -140,7 +144,8 @@ def main():
     parser.add_argument('--transpose', type=int, choices=range(12), help='Transposition key (0-11)')
     parser.add_argument('--force-chroma-calculation', action='store_true', help='Force recalculation of chroma features')
     parser.add_argument('--segment-id', type=str, help='Identifier for the segment (used in output filename)')
-    
+    parser.add_argument('--crema', action='store_true', help='Use CREMA model')
+
     args = parser.parse_args()
     
     # Construct paths
@@ -158,7 +163,8 @@ def main():
         str(beats_path),
         args.start,
         args.end,
-        args.force_chroma_calculation
+        args.force_chroma_calculation,
+        args.crema,
     )
     
     # Find and load MusicXML file
