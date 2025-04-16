@@ -144,7 +144,7 @@ class HMMConnectorMixin:
         # step 0: transpose node_chroma_matrix
         transposed_node_chroma_matrix = np.roll(node_chroma_matrix, transposition, axis=1)
         # step 1: binarize sequence
-        sequence = (sequence > 0).astype(np.float32)
+        sequence = (sequence > 0.5).astype(np.float32)
         # step 2: compute matrix of hamming distances between sequence and each node chroma vector
         hamming_distances = np.sum(
             (transposed_node_chroma_matrix[:, np.newaxis, :] != sequence[np.newaxis, :, :]), axis=2
