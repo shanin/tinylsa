@@ -62,7 +62,6 @@ def load_audio_features(audio_path: str, beats_path: str, model_path: str, start
         if use_crema:
             model = BeatCrema()
         else:
-            assert False, "ChromaPredictor is disabled"
             model = ChromaPredictor(
                 HCQTConformer(
                     hidden_dim=128,
@@ -136,30 +135,28 @@ def find_musicxml_file(musicxml_folder: str, tune_name: str) -> str:
             return str(file)
     raise FileNotFoundError(f"Could not find MusicXML file for tune '{tune_name}'")
 
-def main():
-    parser = argparse.ArgumentParser(description='Align audio features with lead sheet annotations')
-    parser.add_argument('--data', type=str, required=True, help='Path to data folder with audio and features subfolders')
-    parser.add_argument('--tune', type=str, required=True, help='Name of the tune')
-    parser.add_argument('--musicxml', type=str, required=True, help='Path to MusicXML folder')
-    parser.add_argument('--start', type=float, help='Start time in seconds')
-    parser.add_argument('--end', type=float, help='End time in seconds')
-    parser.add_argument('--transpose', type=int, choices=range(12), help='Transposition key (0-11)')
-    parser.add_argument('--force-chroma-calculation', action='store_true', help='Force recalculation of chroma features')
-    parser.add_argument('--segment-id', type=str, help='Identifier for the segment (used in output filename)')
-    parser.add_argument('--crema', action='store_true', help='Use CREMA model')
-    args = parser.parse_args()
-    
+def run_align(
+    data_path: str,
+    tune: str,
+    musicxml: str,
+    start_time: Optional[float] = None,
+    end_time: Optional[float] = None,
+    transposition: Optional[int] = None,
+    crema: bool = True,
+    segment_id: Optional[str] = None,
+    force_chroma_calculation: bool = False,
+):
+
     # Construct paths
-    data_path = Path(args.data)
     data_id = data_path.name
     audio_path = data_path / 'audio' / f'{data_id}.wav'
     beats_path = data_path / 'features' / f'{data_id}_beats_.json'
     
     # Create output filename with segment_id if provided
-    output_suffix = f"_{args.segment_id}" if args.segment_id else ""
+    output_suffix = f"_{segment_id}" if segment_id else ""
     
     # Load and process audio features
-    if args.crema:
+    if crema:
         model_path = Path(__file__).parent.parent / 'data/crema.st'
     else:
         model_path = Path(__file__).parent.parent / 'data/checkpoint.pth'
@@ -167,21 +164,21 @@ def main():
         str(audio_path), 
         str(beats_path),
         str(model_path),
-        args.start,
-        args.end,
-        args.force_chroma_calculation,
-        args.crema,
+        start_time,
+        end_time,
+        force_chroma_calculation,
+        crema,
     )
     
     # Find and load MusicXML file
-    musicxml_path = find_musicxml_file(args.musicxml, args.tune)
+    musicxml_path = find_musicxml_file(musicxml, tune)
     leadsheet = LeadSheet(musicxml_path)
     
     # Handle transposition
-    if args.transpose is not None:
+    if transposition is not None:
         # Decode with specified transposition
         print(features.numpy().shape)
-        loglik, states = leadsheet.decode(features.numpy(), transposition=args.transpose)
+        loglik, states = leadsheet.decode(features.numpy(), transposition=transposition)
     else:
         # Try all transpositions and select best
         best_loglik = float('-inf')
@@ -210,11 +207,11 @@ def main():
     start_beat_idx = 0
     end_beat_idx = len(beat_frames)
     
-    if args.start is not None or args.end is not None:
+    if start_time is not None or end_time is not None:
         for i, time in enumerate(beat_times):
-            if time >= args.start and start_beat_idx == 0:
+            if time >= start_time and start_beat_idx == 0:
                 start_beat_idx = i
-            if time > args.end and end_beat_idx == len(beat_frames):
+            if time > end_time and end_beat_idx == len(beat_frames):
                 end_beat_idx = i
                 break
     
@@ -238,6 +235,31 @@ def main():
         json.dump(alignment_result, f, indent=2)
     
     print(f"Alignment saved to {result_path}")
+
+def main():
+    parser = argparse.ArgumentParser(description='Align audio features with lead sheet annotations')
+    parser.add_argument('--data', type=str, required=True, help='Path to data folder with audio and features subfolders')
+    parser.add_argument('--tune', type=str, required=True, help='Name of the tune')
+    parser.add_argument('--musicxml', type=str, required=True, help='Path to MusicXML folder')
+    parser.add_argument('--start', type=float, help='Start time in seconds')
+    parser.add_argument('--end', type=float, help='End time in seconds')
+    parser.add_argument('--transpose', type=int, choices=range(12), help='Transposition key (0-11)')
+    parser.add_argument('--force-chroma-calculation', action='store_true', help='Force recalculation of chroma features')
+    parser.add_argument('--segment-id', type=str, help='Identifier for the segment (used in output filename)')
+    parser.add_argument('--crema', action='store_true', help='Use CREMA model')
+    args = parser.parse_args()
+
+    run_align(
+        data_path=args.data,
+        tune=args.tune,
+        musicxml=args.musicxml,
+        start_time=args.start,
+        end_time=args.end,
+        transposition=args.transpose,
+        crema=args.crema,
+        segment_id=args.segment_id,
+        force_chroma_calculation=args.force_chroma_calculation,
+    )
 
 if __name__ == '__main__':
     main()
