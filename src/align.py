@@ -136,7 +136,7 @@ def find_musicxml_file(musicxml_folder: str, tune_name: str) -> str:
     raise FileNotFoundError(f"Could not find MusicXML file for tune '{tune_name}'")
 
 def run_align(
-    data_path: str,
+    data: str,
     tune: str,
     musicxml: str,
     start_time: Optional[float] = None,
@@ -146,6 +146,8 @@ def run_align(
     segment_id: Optional[str] = None,
     force_chroma_calculation: bool = False,
 ):
+
+    data_path = Path(data)
 
     # Construct paths
     data_id = data_path.name
@@ -235,6 +237,8 @@ def run_align(
         json.dump(alignment_result, f, indent=2)
     
     print(f"Alignment saved to {result_path}")
+    
+    return alignment_result  # Return the alignment data
 
 def main():
     parser = argparse.ArgumentParser(description='Align audio features with lead sheet annotations')
@@ -250,7 +254,7 @@ def main():
     args = parser.parse_args()
 
     run_align(
-        data_path=args.data,
+        data=args.data,
         tune=args.tune,
         musicxml=args.musicxml,
         start_time=args.start,
